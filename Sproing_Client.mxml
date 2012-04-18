@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:WindowedApplication xmlns:fx="http://ns.adobe.com/mxml/2009" 
+					   xmlns:s="library://ns.adobe.com/flex/spark" 
+					   xmlns:mx="library://ns.adobe.com/flex/mx"
+					   creationComplete="windowedapplication1_creationCompleteHandler(event)">
+	
+	<fx:Script>
+		<![CDATA[
+			
+			/*
+			
+				Communication protocol:
+				The first Byte is the Command, others are the message (ASCII)
+				
+			*/
+			
+			
+			
+			
+			import mx.events.FlexEvent;
+			
+			// Server - client command constants
+			private const AUTH:int = 1;
+			private const MSG:int = 2;
+			private const DISCONNECT:int = 3;
+			
+			// Server's IP, PORT
+			private const IP:String = "192.168.1.9";
+			private const PORT:int = 1234;
+			
+			private var socket:Socket
+			private var timer:Timer;
+			
+			
+			protected function windowedapplication1_creationCompleteHandler(event:FlexEvent):void
+			{
+				
+				// Connecting to the server and adding listeners	
+				
+				socket = new Socket();
+				
+				socket.addEventListener(ProgressEvent.SOCKET_DATA, socketDataHandler);
+				socket.addEventListener(Event.CONNECT, connected);
+				
+				socket.connect(IP, PORT);
+				
+				
+				
+				
+			}
+			
+			private function connected(evt:Event):void
+			{
+				// Sending authorisation request to the server
+				sendCommand(AUTH);
+				
+				// Setting the timer to send disconnect request
+				timer = new Timer(3000, 1);
+				timer.addEventListener(TimerEvent.TIMER_COMPLETE, timerHandler);
+				timer.start();
+			}
+			
+			
+			private function timerHandler(evt:TimerEvent):void
+			{
+				// sending disconnect request
+				sendCommand(DISCONNECT, "So Long, and thanks for all the fish");
+			}
+			
+			
+			private function sendCommand(command:int, message:String = ""):void
+			{
+				// Sending the code of the request, and the message if there any
+				
+				
+				var bytes:ByteArray = new ByteArray();
+				bytes[0] = command;
+				
+				
+				for (var i:int = 0; i<message.length; i++)
+				{
+				
+					bytes[i+1] = message.charCodeAt(i);
+				}
+				
+				
+				socket.writeBytes(bytes, 0, bytes.length);
+				socket.flush();
+				
+			}
+			
+			
+			
+			private function socketDataHandler(evt:ProgressEvent):void
+			{
+				
+				// Handler for recieved data
+				
+				var bytes:ByteArray = new ByteArray(); 
+				(evt.target as Socket).readBytes(bytes, 0, evt.bytesLoaded);
+				
+				var strBytes:ByteArray;
+				var i:int;
+				var str:String;
+				
+				if (bytes[0] == MSG)
+				{
+					// If the Command byte is MSG, then we read the message from the data
+					// to a new ByteArray and write it on the console
+					
+					strBytes = new ByteArray(); 
+					
+					for (i = 1; i < bytes.length; i++)
+					{
+						
+						strBytes[i-1] = bytes[i];
+					}
+					str = strBytes.readUTFBytes(strBytes.length);
+					
+					trace(str);
+					messagesArea.appendText(str+"\n");
+					
+				}
+				else if (bytes[0] == DISCONNECT)
+				{
+					// If the Command byte is DISCONNECT, then we read the message from the data
+					// to a new ByteArray and write it on the console, and close the socket 
+					
+					strBytes = new ByteArray(); 
+					
+					
+					for (i = 1; i < bytes.length; i++)
+					{
+						
+						strBytes[i-1] = bytes[i];
+					}
+					str = strBytes.readUTFBytes(strBytes.length);
+					
+					
+					trace(str);
+					messagesArea.appendText(str+"\n");
+					
+					
+					socket.close();
+				}
+				
+				
+				
+			}
+			
+			
+			
+		]]>
+	</fx:Script>
+	
+	<s:TextArea id="messagesArea"
+				width="100%"
+				height="100%"/>
+	
+</s:WindowedApplication>
